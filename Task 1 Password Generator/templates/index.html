@@ -1,0 +1,34 @@
+🔐 Custom Password Generator
+
+Create passwords using your preferred settings.
+
+{% if exited %}
+Thank you for using Password Generator!
+
+Start Again
+{% else %} {% if error %}
+{{ error }}
+{% endif %}
+Choose Password Type  
+Total Password Length (4–128)  
+How would you like to create your password?
+  I will choose alphabets, numbers and symbols   Create a password for me
+How many passwords do you want? (1–20)    Generate Password
+{% if settings %}
+Final Password Settings
+
+Total length: {{ settings.length }}
+
+Alphabets: {{ settings.letters }}
+
+Numbers: {{ settings.numbers }}
+
+Special symbols: {{ settings.symbols }}
+
+Generated Passwords
+
+{% for password in passwords %}
+{{ password }}  Copy
+{% endfor %}
+Generate Again
+{% endif %} {% endif %}
