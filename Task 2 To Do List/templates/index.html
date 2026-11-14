@@ -1,0 +1,333 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart To-Do List</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 25px 15px;
+            font-family: Arial, sans-serif;
+            background: #f3f6fb;
+            color: #263248;
+        }
+
+        .container { max-width: 1050px; margin: auto; }
+        h1 { color: #3546a5; margin-bottom: 8px; }
+        .subtitle { color: #667085; margin-bottom: 25px; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px;
+            margin: 22px 0;
+        }
+
+        .stat, .panel, .task {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 3px 14px rgba(0, 0, 0, .06);
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 26px;
+            color: #3546a5;
+        }
+
+        .stat span { color: #667085; font-size: 14px; }
+        .panel { margin: 20px 0; }
+        h2 { font-size: 20px; margin-top: 0; }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 11px;
+            margin: 6px 0 14px;
+            border: 1px solid #d5dbea;
+            border-radius: 7px;
+            font: inherit;
+        }
+
+        textarea { min-height: 75px; resize: vertical; }
+        label { font-weight: bold; font-size: 14px; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 10px;
+        }
+
+        button, .button {
+            display: inline-block;
+            border: 0;
+            border-radius: 7px;
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            background: #4658c8;
+            color: white;
+        }
+
+        .soft { background: #edf0ff; color: #3546a5; }
+        .danger { background: #ffe9e9; color: #b42318; }
+        .success { background: #dff7e8; color: #187344; }
+
+        .filters {
+            display: grid;
+            grid-template-columns: 2fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .filters input, .filters select { margin-bottom: 0; }
+        .task { margin: 15px 0; }
+        .task-top { display: flex; justify-content: space-between; gap: 12px; }
+        .task h3 { margin: 0 0 8px; overflow-wrap: anywhere; }
+        .description { color: #667085; white-space: pre-wrap; }
+        .meta { font-size: 14px; color: #667085; line-height: 1.8; }
+        .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            background: #edf0ff;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .alert {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        .alert-warning { background: #fff3d6; color: #855b00; }
+        .alert-danger { background: #ffe9e9; color: #b42318; }
+        .empty { text-align: center; color: #667085; padding: 25px; }
+
+        dialog {
+            width: min(520px, calc(100% - 30px));
+            border: none;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 15px 50px #0003;
+        }
+
+        dialog::backdrop { background: #15203b99; }
+        .close { float: right; }
+
+        @media (max-width: 600px) {
+            .filters { grid-template-columns: 1fr; }
+            .task-top { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Smart To-Do List</h1>
+    <p class="subtitle">Organize tasks, manage deadlines, and track your progress.</p>
+
+    <section class="stats">
+        <div class="stat"><strong>{{ statistics.total or 0 }}</strong><span>Total Tasks</span></div>
+        <div class="stat"><strong>{{ statistics.pending or 0 }}</strong><span>Pending</span></div>
+        <div class="stat"><strong>{{ statistics.ongoing or 0 }}</strong><span>Ongoing</span></div>
+        <div class="stat"><strong>{{ statistics.completed or 0 }}</strong><span>Completed</span></div>
+    </section>
+
+    {% if overdue_tasks or reminders %}
+    <section class="panel">
+        <h2>🔔 Deadline Reminders</h2>
+        {% for task in overdue_tasks %}
+        <div class="alert alert-danger">
+            <strong>{{ task.title }}</strong>: {{ task.deadline_message }}
+        </div>
+        {% endfor %}
+        {% for task in reminders %}
+        <div class="alert alert-warning">
+            <strong>{{ task.title }}</strong>: {{ task.deadline_message }}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="panel">
+        <h2>Add a New Task</h2>
+        <form action="{{ url_for('add_task') }}" method="POST">
+            <label for="title">Task Name *</label>
+            <input id="title" name="title" maxlength="200" required placeholder="Enter your task">
+
+            <label for="description">Description</label>
+            <textarea id="description" name="description" placeholder="Task details (optional)"></textarea>
+
+            <div class="form-grid">
+                <div>
+                    <label for="priority">Priority</label>
+                    <select id="priority" name="priority">
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="due_date">Due Date</label>
+                    <input id="due_date" type="date" name="due_date">
+                </div>
+            </div>
+            <button type="submit">+ Add Task</button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Your Tasks</h2>
+        <form class="filters" method="GET" action="{{ url_for('home') }}">
+            <input type="search" name="search" value="{{ search }}" placeholder="Search tasks">
+            <select name="status">
+                <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
+                <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                <option value="Ongoing" {% if status_filter == 'Ongoing' %}selected{% endif %}>Ongoing</option>
+                <option value="Completed" {% if status_filter == 'Completed' %}selected{% endif %}>Completed</option>
+            </select>
+            <button type="submit">Search / Filter</button>
+        </form>
+    </section>
+
+    {% for task in tasks %}
+    <article class="task">
+        <div class="task-top">
+            <div>
+                <h3>{{ task.title }}</h3>
+                {% if task.description %}
+                <p class="description">{{ task.description }}</p>
+                {% endif %}
+            </div>
+            <span class="badge">{{ task.priority }} Priority</span>
+        </div>
+
+        <div class="meta">
+            Status: <strong>{{ task.status }}</strong><br>
+            {% if task.due_date %}Due date: {{ task.due_date }}<br>{% endif %}
+            {% if task.created_at %}Created: {{ task.created_at.replace('T', ' ') }}<br>{% endif %}
+            {% if task.started_at %}Started: {{ task.started_at.replace('T', ' ') }}<br>{% endif %}
+            {% if task.completed_at %}Completed: {{ task.completed_at.replace('T', ' ') }}<br>{% endif %}
+            {% if task.started_at %}
+            Duration:
+            <span data-started="{{ task.started_at }}"
+                  data-completed="{{ task.completed_at }}">{{ task.duration }}</span>
+            {% endif %}
+        </div>
+
+        {% if task.deadline_message and task.status != 'Completed' %}
+        <div class="alert {% if task.overdue %}alert-danger{% else %}alert-warning{% endif %}">
+            {{ task.deadline_message }}
+        </div>
+        {% endif %}
+
+        <div class="actions">
+            {% if task.status != 'Completed' %}
+            <form method="POST" action="{{ url_for('update_status', task_id=task.id) }}">
+                <input type="hidden" name="status" value="Ongoing">
+                <button class="soft" type="submit">▶ Start / Resume</button>
+            </form>
+            <form class="complete-form" method="POST" action="{{ url_for('update_status', task_id=task.id) }}">
+                <input type="hidden" name="status" value="Completed">
+                <button class="success" type="submit">✓ Submit as Completed</button>
+            </form>
+            {% endif %}
+
+            <a class="button soft" href="{{ url_for('edit_task', task_id=task.id) }}">Edit</a>
+
+            <form method="POST" action="{{ url_for('delete_task', task_id=task.id) }}"
+                  onsubmit="return confirm('Delete this task?');">
+                <button class="danger" type="submit">Delete</button>
+            </form>
+        </div>
+    </article>
+    {% else %}
+    <div class="panel empty">No tasks found. Add your first task above!</div>
+    {% endfor %}
+</div>
+
+<dialog id="reminderDialog">
+    <button class="soft close" id="closeDialog" type="button">Close</button>
+    <h2>🔔 Task Reminder</h2>
+    <div id="reminderMessages"></div>
+</dialog>
+
+<script id="reminder-data" type="application/json">{{ reminder_items | tojson }}</script>
+
+<script>
+    const reminderData = document.getElementById("reminder-data");
+    const reminderItems = JSON.parse(reminderData.textContent);
+
+    const dialog = document.getElementById("reminderDialog");
+    const messageBox = document.getElementById("reminderMessages");
+    const closeButton = document.getElementById("closeDialog");
+
+    if (reminderItems.length > 0 &&
+        !sessionStorage.getItem("remindersShown") &&
+        dialog && messageBox) {
+
+        reminderItems.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "alert " +
+                (item.overdue ? "alert-danger" : "alert-warning");
+
+            const heading = document.createElement("strong");
+            heading.textContent = item.title + ": ";
+            card.appendChild(heading);
+            card.appendChild(document.createTextNode(item.deadline_message));
+            messageBox.appendChild(card);
+        });
+
+        if (typeof dialog.showModal === "function") {
+            dialog.showModal();
+            sessionStorage.setItem("remindersShown", "yes");
+        }
+    }
+
+    if (closeButton && dialog) {
+        closeButton.addEventListener("click", () => dialog.close());
+    }
+
+    document.querySelectorAll(".complete-form").forEach(form => {
+        form.addEventListener("submit", event => {
+            if (!confirm("Submit this task as completed?")) {
+                event.preventDefault();
+            }
+        });
+    });
+
+    function updateElapsedTimes() {
+        document.querySelectorAll("[data-started]").forEach(element => {
+            const start = new Date(element.dataset.started);
+            const end = element.dataset.completed
+                ? new Date(element.dataset.completed)
+                : new Date();
+
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+                return;
+            }
+
+            const seconds = Math.max(
+                0, Math.floor((end.getTime() - start.getTime()) / 1000)
+            );
+
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+
+            element.textContent = `${hours}h ${minutes}m`;
+        });
+    }
+
+    updateElapsedTimes();
+    setInterval(updateElapsedTimes, 60000);
+</script>
+</body>
+</html>
